@@ -23,7 +23,7 @@ func TestView_MainComposition(t *testing.T) {
 			expectedComponents: []string{
 				"MCP Manager v1.0", // Header
 				"MCP Manager",      // Body
-				"Terminal:",        // Footer
+				"📁",                // Footer project context
 			},
 		},
 		{
@@ -50,12 +50,12 @@ func TestView_MainComposition(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model := NewModel()
-			model.Width = tt.width
-			model.Height = tt.height
-			model.State = tt.state
+			model.Model.Width = tt.width
+			model.Model.Height = tt.height
+			model.Model.State = tt.state
 			if tt.state == types.SearchActiveNavigation {
-				model.SearchActive = true
-				model.SearchInputActive = true
+				model.Model.SearchActive = true
+				model.Model.SearchInputActive = true
 			}
 
 			result := model.View()
@@ -110,16 +110,16 @@ func TestView_LayoutSwitching(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model := NewModel()
-			model.Width = tt.width
-			model.Height = tt.height
+			model.Model.Width = tt.width
+			model.Model.Height = tt.height
 
 			// Update layout based on width (simulating layout service)
 			if tt.width >= types.WIDE_LAYOUT_MIN {
-				model.ColumnCount = 4
+				model.Model.ColumnCount = 4
 			} else if tt.width >= types.MEDIUM_LAYOUT_MIN {
-				model.ColumnCount = 2
+				model.Model.ColumnCount = 2
 			} else {
-				model.ColumnCount = 1
+				model.Model.ColumnCount = 1
 			}
 
 			result := model.View()
@@ -204,12 +204,12 @@ func TestView_StateTransitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model := NewModel()
-			model.Width = 120
-			model.Height = 40
-			model.State = tt.state
-			model.SearchActive = tt.searchActive
-			model.SearchInputActive = tt.searchInputActive
-			model.SearchQuery = tt.searchQuery
+			model.Model.Width = 120
+			model.Model.Height = 40
+			model.Model.State = tt.state
+			model.Model.SearchActive = tt.searchActive
+			model.Model.SearchInputActive = tt.searchInputActive
+			model.Model.SearchQuery = tt.searchQuery
 
 			result := model.View()
 
@@ -233,11 +233,11 @@ func TestView_StateTransitions(t *testing.T) {
 func TestView_ComponentIntegration(t *testing.T) {
 	t.Run("Header shows correct MCP count", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 120
-		model.Height = 40
+		model.Model.Width = 120
+		model.Model.Height = 40
 
 		// Set specific MCPs with known active states
-		model.MCPItems = []types.MCPItem{
+		model.Model.MCPItems = []types.MCPItem{
 			{Name: "active1", Active: true},
 			{Name: "inactive1", Active: false},
 			{Name: "active2", Active: true},
@@ -252,12 +252,12 @@ func TestView_ComponentIntegration(t *testing.T) {
 
 	t.Run("Footer shows search results count", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 120
-		model.Height = 40
-		model.SearchQuery = "active"
-		model.SearchActive = false // Not actively searching, but has query
+		model.Model.Width = 120
+		model.Model.Height = 40
+		model.Model.SearchQuery = "active"
+		model.Model.SearchActive = false // Not actively searching, but has query
 
-		model.MCPItems = []types.MCPItem{
+		model.Model.MCPItems = []types.MCPItem{
 			{Name: "active1", Active: true},
 			{Name: "inactive1", Active: false},
 			{Name: "active2", Active: true},
@@ -272,12 +272,12 @@ func TestView_ComponentIntegration(t *testing.T) {
 
 	t.Run("Body shows filtered MCPs", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 120
-		model.Height = 40
-		model.ColumnCount = 4 // Grid layout
-		model.SearchQuery = "github"
+		model.Model.Width = 120
+		model.Model.Height = 40
+		model.Model.ColumnCount = 4 // Grid layout
+		model.Model.SearchQuery = "github"
 
-		model.MCPItems = []types.MCPItem{
+		model.Model.MCPItems = []types.MCPItem{
 			{Name: "github-mcp", Active: true},
 			{Name: "docker-mcp", Active: false},
 			{Name: "github-api", Active: true},
@@ -333,9 +333,9 @@ func TestView_ResponsiveLayout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model := NewModel()
-			model.Width = tt.width
-			model.Height = tt.height
-			model.ColumnCount = tt.columnCount
+			model.Model.Width = tt.width
+			model.Model.Height = tt.height
+			model.Model.ColumnCount = tt.columnCount
 
 			result := model.View()
 
@@ -350,8 +350,8 @@ func TestView_ResponsiveLayout(t *testing.T) {
 func TestView_EdgeCases(t *testing.T) {
 	t.Run("Zero dimensions shows loading", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 0
-		model.Height = 0
+		model.Model.Width = 0
+		model.Model.Height = 0
 
 		result := model.View()
 
@@ -362,9 +362,9 @@ func TestView_EdgeCases(t *testing.T) {
 
 	t.Run("Empty MCP list", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 120
-		model.Height = 40
-		model.MCPItems = []types.MCPItem{} // Empty list
+		model.Model.Width = 120
+		model.Model.Height = 40
+		model.Model.MCPItems = []types.MCPItem{} // Empty list
 
 		result := model.View()
 
@@ -375,9 +375,9 @@ func TestView_EdgeCases(t *testing.T) {
 
 	t.Run("Very small dimensions", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 10
-		model.Height = 5
-		model.ColumnCount = 1
+		model.Model.Width = 10
+		model.Model.Height = 5
+		model.Model.ColumnCount = 1
 
 		result := model.View()
 
@@ -389,9 +389,9 @@ func TestView_EdgeCases(t *testing.T) {
 
 	t.Run("Large dimensions", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 200
-		model.Height = 80
-		model.ColumnCount = 4
+		model.Model.Width = 200
+		model.Model.Height = 80
+		model.Model.ColumnCount = 4
 
 		result := model.View()
 
@@ -405,15 +405,15 @@ func TestView_EdgeCases(t *testing.T) {
 func TestView_VerticalComposition(t *testing.T) {
 	t.Run("Components appear in correct order", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 120
-		model.Height = 40
+		model.Model.Width = 120
+		model.Model.Height = 40
 
 		result := model.View()
 
 		// Find positions of components
 		headerPos := strings.Index(result, "MCP Manager v1.0")
 		bodyPos := strings.Index(result, "Debug: MCPs:")
-		footerPos := strings.Index(result, "Terminal:")
+		footerPos := strings.Index(result, "📁") // Look for project context icon
 
 		if headerPos == -1 {
 			t.Errorf("View() should contain header")
@@ -422,7 +422,7 @@ func TestView_VerticalComposition(t *testing.T) {
 			t.Errorf("View() should contain body")
 		}
 		if footerPos == -1 {
-			t.Errorf("View() should contain footer")
+			t.Errorf("View() should contain footer with project context")
 		}
 
 		// Check order: header should come before body, body before footer
@@ -431,6 +431,167 @@ func TestView_VerticalComposition(t *testing.T) {
 		}
 		if bodyPos > footerPos {
 			t.Errorf("Body should come before footer")
+		}
+	})
+}
+
+func TestView_UncoveredMethods(t *testing.T) {
+	t.Run("renderHeader", func(t *testing.T) {
+		model := NewModel()
+		model.Model.Width = 120
+		model.Model.Height = 40
+		model.Model.State = types.MainNavigation
+		
+		// Test that the full view includes header content
+		result := model.View()
+		
+		if !strings.Contains(result, "MCP Manager v1.0") {
+			t.Errorf("renderHeader should include title")
+		}
+		if !strings.Contains(result, "MCPs:") {
+			t.Errorf("renderHeader should include MCP count")
+		}
+	})
+
+	t.Run("renderFourColumns", func(t *testing.T) {
+		model := NewModel()
+		model.Model.Width = 150
+		model.Model.Height = 40
+		model.Model.ColumnCount = 4
+		
+		// Add test MCPs
+		model.Model.MCPItems = []types.MCPItem{
+			{Name: "test-mcp-1", Active: true, Type: "CMD"},
+			{Name: "test-mcp-2", Active: false, Type: "SSE"},
+			{Name: "test-mcp-3", Active: true, Type: "JSON"},
+			{Name: "test-mcp-4", Active: false, Type: "CMD"},
+		}
+		
+		result := model.View()
+		
+		// Should use 4-column grid layout
+		if !strings.Contains(result, "Grid (4-column MCP)") {
+			t.Errorf("renderFourColumns should show grid layout")
+		}
+		
+		// Should show all test MCPs
+		if !strings.Contains(result, "test-mcp-1") {
+			t.Errorf("renderFourColumns should show test-mcp-1")
+		}
+		if !strings.Contains(result, "test-mcp-2") {
+			t.Errorf("renderFourColumns should show test-mcp-2")
+		}
+	})
+
+	t.Run("renderMCPColumnList", func(t *testing.T) {
+		model := NewModel()
+		model.Model.Width = 100
+		model.Model.Height = 30
+		model.Model.ColumnCount = 3
+		
+		// Add test MCPs
+		model.Model.MCPItems = []types.MCPItem{
+			{Name: "column-test-1", Active: true, Type: "CMD"},
+			{Name: "column-test-2", Active: false, Type: "SSE"},
+		}
+		
+		result := model.View()
+		
+		// Should show MCPs in 3-column layout
+		if !strings.Contains(result, "column-test-1") {
+			t.Errorf("renderMCPColumnList should show column-test-1")
+		}
+		if !strings.Contains(result, "column-test-2") {
+			t.Errorf("renderMCPColumnList should show column-test-2")
+		}
+	})
+
+	t.Run("renderFooter", func(t *testing.T) {
+		model := NewModel()
+		model.Model.Width = 120
+		model.Model.Height = 40
+		model.Model.State = types.MainNavigation
+		
+		result := model.View()
+		
+		// Should include footer content
+		if !strings.Contains(result, "📁") {
+			t.Errorf("renderFooter should include project context icon")
+		}
+		if !strings.Contains(result, "Claude CLI:") {
+			t.Errorf("renderFooter should include Claude CLI status")
+		}
+	})
+
+	t.Run("getLayoutName", func(t *testing.T) {
+		tests := []struct {
+			name        string
+			columnCount int
+			expected    string
+		}{
+			{"Single column", 1, "Narrow"},
+			{"Two columns", 2, "Medium"},
+			{"Three columns", 3, "Wide"},
+			{"Four columns", 4, "Grid (4-column MCP)"},
+		}
+		
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				model := NewModel()
+				model.Model.Width = 120
+				model.Model.Height = 40
+				model.Model.ColumnCount = tt.columnCount
+				
+				result := model.View()
+				
+				if !strings.Contains(result, tt.expected) {
+					t.Errorf("getLayoutName should return %q for %d columns", tt.expected, tt.columnCount)
+				}
+			})
+		}
+	})
+}
+
+func TestView_LoadingStates(t *testing.T) {
+	t.Run("Loading overlay active", func(t *testing.T) {
+		model := NewModel()
+		model.Model.Width = 120
+		model.Model.Height = 40
+		model.Model.StartLoadingOverlay(types.LoadingStartup)
+		model.Model.LoadingOverlay.Message = "Test loading..."
+		
+		result := model.View()
+		
+		if !strings.Contains(result, "Test loading...") {
+			t.Errorf("View should show loading overlay message")
+		}
+	})
+
+	t.Run("Modal active", func(t *testing.T) {
+		model := NewModel()
+		model.Model.Width = 120
+		model.Model.Height = 40
+		model.Model.State = types.ModalActive
+		model.Model.ActiveModal = types.AddModal
+		
+		result := model.View()
+		
+		// Should show modal overlay
+		if !strings.Contains(result, "ESC=Cancel") {
+			t.Errorf("View should show modal shortcuts when modal is active")
+		}
+	})
+
+	t.Run("Alert active", func(t *testing.T) {
+		model := NewModel()
+		model.Model.Width = 120
+		model.Model.Height = 40
+		model.Model.SuccessMessage = "Test alert message"
+		
+		result := model.View()
+		
+		if !strings.Contains(result, "Test alert message") {
+			t.Errorf("View should show alert message when alert is active")
 		}
 	})
 }

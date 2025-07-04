@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	"cc-mcp-manager/internal/ui/handlers"
 	"cc-mcp-manager/internal/ui/services"
@@ -43,6 +45,9 @@ func NewModel() Model {
 		}
 	}
 
+	// Initialize project context
+	model.Model = services.UpdateProjectContext(model.Model)
+
 	return model
 }
 
@@ -56,6 +61,8 @@ func (m Model) Init() tea.Cmd {
 		handlers.StartupLoadingCmd(),
 		handlers.StartupLoadingTimerCmd(0),
 		handlers.LoadingSpinnerCmd(types.LoadingStartup),
+		ProjectContextCheckCmd(),           // Start project context monitoring
+		DelayedClaudeStatusRefreshCmd(),    // Auto-detect Claude CLI after UI loads
 	)
 }
 
@@ -65,6 +72,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		return m.handleWindowSizeMsg(msg), nil
 	case tea.KeyMsg:
+		// Block input when loading overlay is active, except for exit keys
+		if m.Model.IsLoadingOverlayActive() {
+			// Allow exit even during loading
+			if msg.String() == "esc" || msg.String() == "ctrl+c" {
+				return m.handleKeyMsg(msg)
+			}
+			return m, nil
+		}
 		return m.handleKeyMsg(msg)
 	case handlers.SuccessMsg:
 		return m.handleSuccessMsg(msg), nil
@@ -80,6 +95,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleLoadingStepMsg(msg)
 	case types.LoadingSpinnerMsg:
 		return m.handleLoadingSpinnerMsg(msg)
+	case types.ProjectContextCheckMsg:
+		return m.handleProjectContextCheckMsg(msg)
+	case types.DirectoryChangeMsg:
+		return m.handleDirectoryChangeMsg(msg)
+	case StartClaudeDetectionMsg:
+		return m.handleStartClaudeDetectionMsg(msg)
 	}
 	return m, nil
 }
@@ -89,6 +110,8 @@ func (m Model) handleWindowSizeMsg(msg tea.WindowSizeMsg) Model {
 	m.Model.Width = msg.Width
 	m.Model.Height = msg.Height
 	m.Model = services.UpdateLayout(m.Model)
+	// Update project context on window resize
+	m.Model = services.UpdateProjectContext(m.Model)
 	return m
 }
 
@@ -107,6 +130,11 @@ func (m Model) handleSuccessMsg(msg handlers.SuccessMsg) Model {
 
 // handleClaudeStatusMsg handles Claude status update messages
 func (m Model) handleClaudeStatusMsg(msg handlers.ClaudeStatusMsg) (tea.Model, tea.Cmd) {
+	// Stop Claude detection loading overlay if active
+	if m.Model.LoadingOverlay != nil && m.Model.LoadingOverlay.Active && m.Model.LoadingOverlay.Type == types.LoadingClaude {
+		m.Model.StopLoadingOverlay()
+	}
+	
 	// Update model with Claude status
 	m.Model = services.UpdateModelWithClaudeStatus(m.Model, msg.Status)
 
@@ -129,6 +157,9 @@ func (m Model) handleClaudeStatusMsg(msg handlers.ClaudeStatusMsg) (tea.Model, t
 		m.Model.SuccessMessage = "Claude CLI not available"
 		m.Model.SuccessTimer = 180 // Show message for 3 seconds
 	}
+
+	// Update project context after Claude status update
+	m.Model = services.UpdateProjectContext(m.Model)
 
 	// Start timer for success message countdown (not toggle-specific, so use general timer)
 	return m, handlers.TimerCmd("success_timer")
@@ -171,6 +202,8 @@ func (m Model) handleToggleSuccess(msg handlers.ToggleResultMsg) (Model, tea.Cmd
 		}
 		m.Model.SuccessMessage = fmt.Sprintf("MCP '%s' %s successfully", msg.MCPName, activationState)
 		m.Model.SuccessTimer = 120
+		// Update project context after successful toggle
+		m.Model = services.UpdateProjectContext(m.Model)
 		// Start timer for success state
 		return m, handlers.TimerCmd("success_timer")
 	}
@@ -306,6 +339,81 @@ func (m Model) GetSearchInputActive() bool {
 // GetFilteredMCPs returns MCPs filtered by search query
 func (m Model) GetFilteredMCPs() []types.MCPItem {
 	return services.GetFilteredMCPs(m.Model)
+}
+
+// handleProjectContextCheckMsg handles periodic project context checks
+func (m Model) handleProjectContextCheckMsg(msg types.ProjectContextCheckMsg) (tea.Model, tea.Cmd) {
+	// Check if directory has changed
+	if services.HasDirectoryChanged(m.Model.ProjectContext.CurrentPath) {
+		// Directory has changed, trigger directory change message
+		newPath, err := os.Getwd()
+		if err == nil {
+			return m, DirectoryChangeCmd(newPath)
+		}
+	}
+
+	// Update project context regardless to refresh sync status and timestamps
+	m.Model = services.UpdateProjectContext(m.Model)
+
+	// Schedule next check in 5 seconds
+	return m, ProjectContextCheckCmd()
+}
+
+// handleDirectoryChangeMsg handles directory change events
+func (m Model) handleDirectoryChangeMsg(_ types.DirectoryChangeMsg) (tea.Model, tea.Cmd) {
+	// Update project context with new directory
+	m.Model = services.UpdateProjectContext(m.Model)
+
+	// Optionally trigger a Claude status refresh to sync with new directory
+	// This ensures the MCP status is accurate for the new project context
+	if m.Model.ClaudeAvailable {
+		return m, RefreshClaudeStatusCmd()
+	}
+
+	return m, nil
+}
+
+// ProjectContextCheckCmd returns a command to check project context
+func ProjectContextCheckCmd() tea.Cmd {
+	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+		return types.ProjectContextCheckMsg{}
+	})
+}
+
+// DirectoryChangeCmd returns a command to signal directory change
+func DirectoryChangeCmd(newPath string) tea.Cmd {
+	return func() tea.Msg {
+		return types.DirectoryChangeMsg{NewPath: newPath}
+	}
+}
+
+// RefreshClaudeStatusCmd returns a command to refresh Claude status
+func RefreshClaudeStatusCmd() tea.Cmd {
+	return handlers.RefreshClaudeStatusCmd()
+}
+
+// DelayedClaudeStatusRefreshCmd returns a command to refresh Claude status after a short delay
+// This allows the UI to load first before detecting Claude CLI
+func DelayedClaudeStatusRefreshCmd() tea.Cmd {
+	return tea.Tick(time.Millisecond*500, func(t time.Time) tea.Msg {
+		// After 500ms, start the Claude detection process
+		return StartClaudeDetectionMsg{}
+	})
+}
+
+// StartClaudeDetectionMsg signals the start of Claude CLI detection
+type StartClaudeDetectionMsg struct{}
+
+// handleStartClaudeDetectionMsg handles the start of Claude detection
+func (m Model) handleStartClaudeDetectionMsg(msg StartClaudeDetectionMsg) (tea.Model, tea.Cmd) {
+	// Start Claude detection loading overlay
+	m.Model.StartLoadingOverlay(types.LoadingClaude)
+	
+	// Return command to refresh Claude status and spinner
+	return m, tea.Batch(
+		RefreshClaudeStatusCmd(),
+		handlers.LoadingSpinnerCmd(types.LoadingClaude),
+	)
 }
 
 // All layout and navigation logic has been moved to services and handlers packages

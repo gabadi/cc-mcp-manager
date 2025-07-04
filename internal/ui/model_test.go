@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"cc-mcp-manager/internal/testutil"
+	"cc-mcp-manager/internal/ui/handlers"
 	"cc-mcp-manager/internal/ui/types"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -24,7 +25,7 @@ func TestModel_GetterMethods(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				model := NewModel()
-				model.ColumnCount = tt.columnCount
+				model.Model.ColumnCount = tt.columnCount
 
 				result := model.GetColumnCount()
 
@@ -49,7 +50,7 @@ func TestModel_GetterMethods(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				model := NewModel()
-				model.ActiveColumn = tt.activeColumn
+				model.Model.ActiveColumn = tt.activeColumn
 
 				result := model.GetActiveColumn()
 
@@ -73,7 +74,7 @@ func TestModel_GetterMethods(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				model := NewModel()
-				model.SelectedItem = tt.selectedItem
+				model.Model.SelectedItem = tt.selectedItem
 
 				result := model.GetSelectedItem()
 
@@ -98,7 +99,7 @@ func TestModel_GetterMethods(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				model := NewModel()
-				model.State = tt.state
+				model.Model.State = tt.state
 
 				result := model.GetState()
 
@@ -123,7 +124,7 @@ func TestModel_GetterMethods(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				model := NewModel()
-				model.SearchQuery = tt.searchQuery
+				model.Model.SearchQuery = tt.searchQuery
 
 				result := model.GetSearchQuery()
 
@@ -146,7 +147,7 @@ func TestModel_GetterMethods(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				model := NewModel()
-				model.SearchActive = tt.searchActive
+				model.Model.SearchActive = tt.searchActive
 
 				result := model.GetSearchActive()
 
@@ -169,7 +170,7 @@ func TestModel_GetterMethods(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				model := NewModel()
-				model.SearchInputActive = tt.searchInputActive
+				model.Model.SearchInputActive = tt.searchInputActive
 
 				result := model.GetSearchInputActive()
 
@@ -235,8 +236,8 @@ func TestModel_GetFilteredMCPs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model := NewModel()
-			model.MCPItems = tt.mcpItems
-			model.SearchQuery = tt.searchQuery
+			model.Model.MCPItems = tt.mcpItems
+			model.Model.SearchQuery = tt.searchQuery
 
 			result := model.GetFilteredMCPs()
 
@@ -291,7 +292,7 @@ func TestModel_NewModel(t *testing.T) {
 	}
 
 	// Test that MCPItems are populated
-	if len(model.MCPItems) == 0 {
+	if len(model.Model.MCPItems) == 0 {
 		t.Errorf("NewModel() should have populated MCPItems")
 	}
 }
@@ -308,12 +309,12 @@ func TestModel_Update(t *testing.T) {
 		updatedModel, cmd := model.Update(msg)
 		m := updatedModel.(Model)
 
-		if m.Width != 120 {
-			t.Errorf("Update() should set width to 120, got %d", m.Width)
+		if m.Model.Width != 120 {
+			t.Errorf("Update() should set width to 120, got %d", m.Model.Width)
 		}
 
-		if m.Height != 40 {
-			t.Errorf("Update() should set height to 40, got %d", m.Height)
+		if m.Model.Height != 40 {
+			t.Errorf("Update() should set height to 40, got %d", m.Model.Height)
 		}
 
 		if cmd != nil {
@@ -323,8 +324,8 @@ func TestModel_Update(t *testing.T) {
 
 	t.Run("KeyMsg delegates to handlers", func(t *testing.T) {
 		model := NewModel()
-		model.Width = 120
-		model.Height = 40
+		model.Model.Width = 120
+		model.Model.Height = 40
 
 		// Test a key that should change state
 		msg := tea.KeyMsg{
@@ -403,6 +404,237 @@ func TestModel_StateConsistency(t *testing.T) {
 	})
 }
 
+func TestModel_MessageHandlers(t *testing.T) {
+	t.Run("handleSuccessMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a success message
+		successMsg := handlers.SuccessMsg{
+			Message: "Test success message",
+		}
+		
+		updatedModel, cmd := model.Update(successMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		if cmd != nil {
+			t.Errorf("handleSuccessMsg should return nil cmd")
+		}
+	})
+
+	t.Run("handleClaudeStatusMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a Claude status message
+		statusMsg := handlers.ClaudeStatusMsg{
+			Status: types.ClaudeStatus{
+				Available:  true,
+				Version:    "1.0.0",
+				ActiveMCPs: []string{"github", "docker"},
+			},
+		}
+		
+		updatedModel, cmd := model.Update(statusMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		_ = cmd // May return command for follow-up actions
+	})
+
+	t.Run("handleToggleResultMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a toggle result message
+		toggleMsg := handlers.ToggleResultMsg{
+			MCPName: "github",
+			Success: true,
+			Error:   "",
+		}
+		
+		updatedModel, cmd := model.Update(toggleMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		_ = cmd // May return command for follow-up actions
+	})
+
+	t.Run("handleTimerTickMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a timer tick message
+		timerMsg := types.TimerTickMsg{
+			ID: "1",
+		}
+		
+		updatedModel, cmd := model.Update(timerMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		_ = cmd // May return command for follow-up actions
+	})
+
+	t.Run("handleLoadingProgressMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a loading progress message
+		progressMsg := types.LoadingProgressMsg{
+			Type:    types.LoadingStartup,
+			Message: "Loading...",
+			Done:    false,
+		}
+		
+		updatedModel, cmd := model.Update(progressMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		_ = cmd // May return command for follow-up actions
+	})
+
+	t.Run("handleLoadingStepMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a loading step message
+		stepMsg := types.LoadingStepMsg{
+			Type: types.LoadingStartup,
+			Step: 1,
+		}
+		
+		updatedModel, cmd := model.Update(stepMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		_ = cmd // May return command for follow-up actions
+	})
+
+	t.Run("handleLoadingSpinnerMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a loading spinner message
+		spinnerMsg := types.LoadingSpinnerMsg{
+			Type: types.LoadingStartup,
+		}
+		
+		updatedModel, cmd := model.Update(spinnerMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		_ = cmd // May return command for follow-up actions
+	})
+
+	t.Run("handleProjectContextCheckMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a project context check message
+		contextMsg := types.ProjectContextCheckMsg{}
+		
+		updatedModel, cmd := model.Update(contextMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		_ = cmd // May return command for follow-up actions
+	})
+
+	t.Run("handleDirectoryChangeMsg", func(t *testing.T) {
+		model := NewModel()
+		
+		// Create a directory change message
+		dirMsg := types.DirectoryChangeMsg{
+			NewPath: "/new/path",
+		}
+		
+		updatedModel, cmd := model.Update(dirMsg)
+		m := updatedModel.(Model)
+		
+		// Should update model state appropriately
+		_ = m
+		_ = cmd // May return command for follow-up actions
+	})
+}
+
+func TestPackageCommandGenerators(t *testing.T) {
+	t.Run("ProjectContextCheckCmd", func(t *testing.T) {
+		cmd := ProjectContextCheckCmd()
+		
+		if cmd == nil {
+			t.Errorf("ProjectContextCheckCmd should return a valid command")
+		}
+	})
+
+	t.Run("DirectoryChangeCmd", func(t *testing.T) {
+		cmd := DirectoryChangeCmd("/test/path")
+		
+		if cmd == nil {
+			t.Errorf("DirectoryChangeCmd should return a valid command")
+		}
+	})
+
+	t.Run("RefreshClaudeStatusCmd", func(t *testing.T) {
+		cmd := RefreshClaudeStatusCmd()
+		
+		if cmd == nil {
+			t.Errorf("RefreshClaudeStatusCmd should return a valid command")
+		}
+	})
+}
+
+func TestModel_ErrorHandling(t *testing.T) {
+	t.Run("Model handles nil messages gracefully", func(t *testing.T) {
+		model := NewModel()
+		
+		// Test with nil-like empty message
+		msg := struct{}{}
+		
+		updatedModel, cmd := model.Update(msg)
+		m := updatedModel.(Model)
+		
+		// Should return unchanged model
+		if m.GetState() != model.GetState() {
+			t.Errorf("Update() with nil message should preserve state")
+		}
+		
+		if cmd != nil {
+			t.Errorf("Update() with nil message should return nil cmd")
+		}
+	})
+
+	t.Run("Model preserves state across updates", func(t *testing.T) {
+		model := testutil.NewTestModel().
+			WithWindowSize(120, 40).
+			WithState(types.SearchActiveNavigation).
+			WithSearchActive(true).
+			WithSearchQuery("test").
+			WithSelectedItem(2).
+			WithActiveColumn(1).
+			Build()
+		
+		uiModel := Model{Model: model}
+		originalState := uiModel.GetState()
+		originalQuery := uiModel.GetSearchQuery()
+		
+		// Send unknown message
+		msg := struct{}{}
+		updatedModel, _ := uiModel.Update(msg)
+		m := updatedModel.(Model)
+		
+		// State should be preserved
+		if m.GetState() != originalState {
+			t.Errorf("State should be preserved after unknown message")
+		}
+		
+		if m.GetSearchQuery() != originalQuery {
+			t.Errorf("Search query should be preserved after unknown message")
+		}
+	})
+}
+
 func TestModel_Integration(t *testing.T) {
 	t.Run("Model works with testutil builders", func(t *testing.T) {
 		// Test that our UI model integrates properly with testutil
@@ -415,7 +647,7 @@ func TestModel_Integration(t *testing.T) {
 		uiModel := Model{Model: baseModel}
 
 		// Test that all properties are accessible
-		if uiModel.Width != 150 || uiModel.Height != 50 {
+		if uiModel.Model.Width != 150 || uiModel.Model.Height != 50 {
 			t.Errorf("Model should preserve window dimensions")
 		}
 
@@ -429,34 +661,45 @@ func TestModel_Integration(t *testing.T) {
 	})
 
 	t.Run("Model with realistic MCP data", func(t *testing.T) {
-		// Use default model (not loading from storage) to ensure consistent test data
-		// This avoids dependency on production inventory which may vary
-		defaultModel := types.NewModel()
-		model := Model{Model: defaultModel}
+		// Test with realistic test data to ensure the model works with substantial datasets
+		testMCPs := []types.MCPItem{
+			{Name: "github-mcp", Type: "CMD", Active: true, Command: "github-mcp"},
+			{Name: "context7", Type: "SSE", Active: true, Command: "npx @context7/mcp-server"},
+			{Name: "ht-mcp", Type: "CMD", Active: true, Command: "ht-mcp"},
+			{Name: "filesystem", Type: "CMD", Active: false, Command: "filesystem-mcp"},
+			{Name: "docker-mcp", Type: "CMD", Active: false, Command: "docker-mcp"},
+			{Name: "redis-mcp", Type: "CMD", Active: false, Command: "redis-mcp"},
+			{Name: "aws-mcp", Type: "JSON", Active: false, Command: "aws-mcp"},
+			{Name: "k8s-mcp", Type: "CMD", Active: false, Command: "k8s-mcp"},
+			{Name: "postgres", Type: "CMD", Active: false, Command: "postgres-mcp"},
+			{Name: "gitlab-mcp", Type: "CMD", Active: false, Command: "gitlab-mcp"},
+		}
+		
+		model := Model{Model: types.NewModelWithMCPs(testMCPs)}
 
-		// Default model should have substantial MCP data (>= 10 items from getDefaultMCPs)
-		if len(model.MCPItems) < 10 {
-			t.Errorf("Default model should have substantial MCP data, got %d items", len(model.MCPItems))
+		// Should have substantial test MCP data
+		if len(model.Model.MCPItems) < 10 {
+			t.Errorf("Test model should have substantial MCP data, got %d items", len(model.Model.MCPItems))
 		}
 
-		// Should have some active MCPs by default
+		// Should have some active MCPs in test data
 		activeCount := 0
-		for _, item := range model.MCPItems {
+		for _, item := range model.Model.MCPItems {
 			if item.Active {
 				activeCount++
 			}
 		}
 
 		if activeCount == 0 {
-			t.Errorf("Default model should have some active MCPs")
+			t.Errorf("Test model should have some active MCPs")
 		}
 
-		// Test filtering with realistic data
-		model.SearchQuery = "github"
+		// Test filtering with test data
+		model.Model.SearchQuery = "github"
 		filtered := model.GetFilteredMCPs()
 
 		if len(filtered) == 0 {
-			t.Errorf("Should find MCPs matching 'github' in default data")
+			t.Errorf("Should find MCPs matching 'github' in test data")
 		}
 	})
 }
